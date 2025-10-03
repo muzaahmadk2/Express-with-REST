@@ -3,10 +3,14 @@ const bodyParser = require("body-parser");
 const path = require("path");
 const mongoose = require("mongoose");
 const multer = require("multer");
+const { graphqlHTTP } = require("express-graphql");
 
 const app = express();
-const feedRoutes = require("./routes/feed");
-const authRoutes = require("./routes/auth");
+// const feedRoutes = require("./routes/feed"); //implementing graphql
+// const authRoutes = require("./routes/auth");
+const graphSchema = require("./graphql/schema");
+const graphResolver = require("./graphql/resolvers");
+const { schema } = require("./models/post");
 
 const fileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -47,8 +51,15 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use("/auth", authRoutes);
-app.use("/feed", feedRoutes);
+// app.use("/auth", authRoutes); //implementing graphql
+// app.use("/feed", feedRoutes);
+app.use(
+  "/graphql",
+  graphqlHTTP({
+    schema: graphSchema,
+    rootValue: graphResolver,
+  })
+);
 
 // Error handling middleware
 app.use((error, req, res, next) => {
@@ -65,12 +76,6 @@ mongoose
   )
   .then(() => {
     console.log("✅ Connected to MongoDB");
-    const server = app.listen(8080, () =>
-      console.log("🚀 Server running on port 8080")
-    );
-    const io = require("./socket").init(server);
-    io.on("connection", (socket) => {
-      console.log("Client connected");
-    });
+    app.listen(8080, () => console.log("🚀 Server running on port 8080"));
   })
   .catch((err) => console.error("❌ DB Connection Error:", err));
