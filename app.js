@@ -11,6 +11,7 @@ const app = express();
 const graphSchema = require("./graphql/schema");
 const graphResolver = require("./graphql/resolvers");
 const { schema } = require("./models/post");
+const isAuth = require("./middleware/is-auth");
 
 const fileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -53,6 +54,7 @@ app.use((req, res, next) => {
 // Routes
 // app.use("/auth", authRoutes); //implementing graphql
 // app.use("/feed", feedRoutes);
+app.use(isAuth);
 app.use(
   "/graphql",
   graphqlHTTP({
