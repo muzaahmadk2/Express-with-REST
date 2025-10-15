@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
 const post = require("../models/post");
+const { clearImage } = require("../util/file");
 
 module.exports = {
   createUser: async function ({ userInput }, req) {
@@ -142,5 +143,102 @@ module.exports = {
       }),
       totalPosts: totalPosts,
     };
+  },
+  post: async function ({ id }, req) {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+    const postData = await post.findById(id).populate("creator");
+    if (!postData) {
+      const error = new Error("No post found!");
+      error.code = 404;
+      throw error;
+    }
+    return {
+      ...postData._doc,
+      _id: postData._id.toString(),
+      createdAt: postData.createdAt.toISOString(),
+      updatedAt: postData.updatedAt.toISOString(),
+    };
+  },
+
+  updatePost: async function ({ id, postInput }, req) {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+    const postData = await post.findById(id).populate("creator");
+    if (!postData) {
+      const error = new Error("No post found!");
+      error.code = 404;
+      throw error;
+    }
+    if (postData.creator._id.toString() !== req.userId.toString()) {
+      const error = new Error("Not authorized!");
+      error.code = 403;
+      throw error;
+    }
+
+    let errors = [];
+    if (
+      validator.isEmpty(postInput.title) ||
+      !validator.isLength(postInput.title, { min: 5 })
+    ) {
+      errors.push({ message: "Title is invalid." });
+    }
+    if (
+      validator.isEmpty(postInput.content) ||
+      !validator.isLength(postInput.content, { min: 5 })
+    ) {
+      errors.push({ message: "Content is invalid." });
+    }
+    if (errors.length > 0) {
+      const error = new Error("Invalid input.");
+      error.data = errors;
+      error.code = 422;
+      throw error;
+    }
+
+    postData.title = postInput.title;
+    postData.content = postInput.content;
+    if (postInput.imageUrl !== "undefined") {
+      postData.imageUrl = postInput.imageUrl;
+    }
+    const updatedPost = await postData.save();
+    return {
+      ...updatedPost._doc,
+      _id: updatedPost._id.toString(),
+      createdAt: updatedPost.createdAt.toISOString(),
+      updatedAt: updatedPost.updatedAt.toISOString(),
+    };
+  },
+
+  deletePost: async function ({ id }, req) {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+    const postData = await post.findById(id);
+    if (!postData) {
+      const error = new Error("No post found!");
+      error.code = 404;
+      throw error;
+    }
+    if (postData.creator.toString() !== req.userId.toString()) {
+      const error = new Error("Not authorized!");
+      error.code = 403;
+      throw error;
+    }
+    // Delete image from server
+    clearImage(postData.imageUrl);
+    await postData.findByIdAndRemove(id);
+    const user = await User.findById(req.userId);
+    user.posts.pull(id);
+    await user.save();
+    return true;
   },
 };
