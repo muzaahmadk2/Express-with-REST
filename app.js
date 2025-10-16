@@ -1,9 +1,11 @@
 const express = require("express");
+const fs = require("fs");
 const bodyParser = require("body-parser");
 const path = require("path");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const { graphqlHTTP } = require("express-graphql");
+const helmet = require("helmet");
 
 const app = express();
 // const feedRoutes = require("./routes/feed"); //implementing graphql
@@ -51,6 +53,10 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   next();
 });
+
+app.use(helmet()); // Security middleware
+const privateKey = fs.readFileSync("server.key");
+const certificate = fs.readFileSync("server.cert");
 
 // Routes
 // app.use("/auth", authRoutes); //implementing graphql
@@ -106,6 +112,9 @@ mongoose
   )
   .then(() => {
     console.log("✅ Connected to MongoDB");
+    // https
+    //   .createServer({ key: privateKey, cert: certificate }, app)
+    //   .listen(8080, () => console.log("🚀 Server running on port 8080"));
     app.listen(8080, () => console.log("🚀 Server running on port 8080"));
   })
   .catch((err) => console.error("❌ DB Connection Error:", err));
